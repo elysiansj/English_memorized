@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini 영어 회화 문장 암기장</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 커스텀 스크롤바 스타일링 */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #9ca3af;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased p-4">
+
+    <div id="app" class="max-w-3xl mx-auto bg-white shadow-2xl rounded-xl overflow-hidden">
+        
+        <!-- Header & Tab Navigation -->
+        <header class="p-6 bg-indigo-600 text-white">
+            <h1 class="text-3xl font-extrabold text-center mb-1">영어회화 암기 미션</h1>
+            <p class="text-indigo-200 text-center text-sm">본문을 추가하고 랜덤 퀴즈로 암기해 보세요.</p>
+        </header>
+
+        <nav class="flex justify-around border-b border-gray-200 bg-gray-50">
+            <button data-tab="edit" class="tab-button w-full py-3 text-center text-lg font-semibold transition duration-200 hover:bg-gray-100 border-b-4 border-transparent text-gray-700">본문 편집</button>
+            <button data-tab="quiz" class="tab-button w-full py-3 text-center text-lg font-semibold transition duration-200 hover:bg-gray-100 border-b-4 border-transparent text-gray-700">랜덤 퀴즈</button>
+        </nav>
+
+        <main class="p-6">
+            <div id="loading" class="text-center p-10 hidden">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 inline-block mr-3"></div>
+                <span class="text-gray-600">데이터를 불러오는 중...</span>
+            </div>
+
+            <!-- Content Area for Tabs -->
+            <div id="tab-content">
+                
+                <!-- 1. 본문 편집 (Text Editor) -->
+                <div id="edit-view" class="tab-panel hidden">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800">문장 목록 편집</h2>
+                    <p class="text-sm text-gray-500 mb-4">영어와 한국어 문장을 한 쌍으로 입력해주세요.</p>
+
+                    <div id="sentence-list" class="space-y-4 max-h-96 custom-scroll overflow-y-auto p-2 rounded-lg bg-gray-50 border border-gray-200">
+                        <!-- Sentences will be injected here by JavaScript -->
+                    </div>
+
+                    <div class="mt-6 p-4 border border-indigo-200 rounded-lg bg-indigo-50 shadow-inner">
+                        <p class="text-lg font-semibold text-indigo-700 mb-2">새 문장 추가</p>
+                        <input type="text" id="new-english" placeholder="영어 문장 입력 (예: I am studying English.)" 
+                               class="w-full p-3 mb-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input type="text" id="new-korean" placeholder="한국어 해석 입력 (예: 저는 영어를 공부하고 있어요.)" 
+                               class="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button id="add-sentence-btn" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition duration-150 shadow-md">
+                            문장 쌍 추가
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. 랜덤 퀴즈 (Random Quiz) -->
+                <div id="quiz-view" class="tab-panel hidden">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-800">랜덤 암기 퀴즈</h2>
+                    <div id="quiz-area" class="text-center p-6 bg-white border border-gray-200 rounded-xl shadow-lg min-h-48 flex flex-col justify-center">
+                        <p id="quiz-message" class="text-gray-500 text-lg">시작하려면 '다음 문제' 버튼을 누르세요.</p>
+                        <p id="quiz-question" class="text-2xl font-extrabold my-4 text-indigo-700 break-words hidden"></p>
+                    </div>
+
+                    <div id="quiz-controls" class="mt-6">
+                        <input type="text" id="quiz-answer-input" placeholder="정답을 입력하거나 다음 문제로 넘어가세요" 
+                               class="w-full p-4 mb-3 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        
+                        <div class="flex space-x-3">
+                            <button id="check-answer-btn" class="flex-1 bg-green-500 text-white py-3 rounded-lg font-bold hover:bg-green-600 transition duration-150 shadow-md">
+                                정답 확인/정답 보기
+                            </button>
+                            <button id="next-quiz-btn" class="flex-1 bg-gray-500 text-white py-3 rounded-lg font-bold hover:bg-gray-600 transition duration-150 shadow-md">
+                                다음 문제
+                            </button>
+                        </div>
+
+                        <p id="quiz-result" class="mt-4 text-center font-bold text-xl"></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer: Today's Mission Status -->
+        <footer class="p-4 bg-indigo-700 text-white flex justify-between items-center mt-4">
+            <div>
+                <p class="text-lg font-semibold">오늘 날짜: <span id="current-date-display"></span></p>
+                <p class="text-sm">사용자 ID: <span id="user-id-display" class="font-mono text-indigo-200 text-xs">로딩 중...</span></p>
+            </div>
+            <div class="text-right">
+                <p id="mission-status" class="text-lg font-bold mb-1">미션 상태: 로딩 중...</p>
+                <button id="complete-mission-btn" class="bg-yellow-400 text-indigo-900 py-1 px-3 rounded-full font-bold text-sm hover:bg-yellow-300 transition duration-150 shadow-md disabled:opacity-50" disabled>
+                    오늘 미션 완료!
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, collection, query, onSnapshot, doc, 
+            addDoc, deleteDoc, updateDoc, setDoc, 
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db;
+        let auth;
+        let userId = 'loading...';
+        let sentences = []; // Local array to hold all sentence pairs
+        let todayCompletion = false;
+
+        // Quiz State
+        let currentQuiz = null; 
+
+        // --- Utility Functions ---
+
+        // Function to get today's date in YYYY-MM-DD format
+        function getTodayDateString() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+            const dd = String(today.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // --- Firebase Initialization and Auth ---
+
+        async function initFirebase() {
+            try {
+                // setLogLevel('Debug'); // Enable Firestore logging for debugging
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate user
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Wait for auth state to be ready and get userId
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('user-id-display').textContent = userId;
+                        
+                        // Start listeners after authentication is complete
+                        setupFirestoreListeners();
+                        showTab(document.querySelector('.tab-button[data-tab="edit"]').dataset.tab); // Show default tab
+                        document.getElementById('loading').classList.add('hidden');
+                    } else {
+                        // This should not happen if custom token or anonymous sign-in succeeds
+                        console.error("Authentication failed.");
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase or authentication:", error);
+                document.getElementById('loading').innerHTML = '<p class="text-red-600">데이터 로드 실패: Firebase 설정 오류. 콘솔을 확인하세요.</p>';
+            }
+        }
+
+        // --- Firestore Listener Setup ---
+
+        function setupFirestoreListeners() {
+            if (!db || !userId) return;
+
+            // 1. Sentences Listener (Real-time update for Edit/Quiz views)
+            const sentencesCollection = collection(db, `artifacts/${appId}/users/${userId}/sentences`);
+            onSnapshot(sentencesCollection, (snapshot) => {
+                sentences = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                renderSentenceList();
+                // If the user is on the quiz tab, refresh the quiz message/state
+                if (document.getElementById('quiz-view').classList.contains('active')) {
+                     if (!currentQuiz) {
+                        document.getElementById('quiz-message').textContent = sentences.length > 0 
+                            ? "새로운 문장을 추가했군요! '다음 문제' 버튼을 눌러 시작하세요."
+                            : "문장이 없습니다. '본문 편집' 탭에서 문장을 추가해주세요.";
+                     }
+                }
+            }, (error) => {
+                console.error("Error listening to sentences:", error);
+            });
+
+            // 2. Completion Log Listener (Real-time update for Mission Status)
+            const todayDate = getTodayDateString();
+            const completionDocRef = doc(db, `artifacts/${appId}/users/${userId}/completion_log/${todayDate}`);
+
+            onSnapshot(completionDocRef, (docSnap) => {
+                todayCompletion = docSnap.exists() && docSnap.data().completed === true;
+                updateMissionDisplay();
+            }, (error) => {
+                console.error("Error listening to completion log:", error);
+            });
+        }
+
+
+        // --- UI Rendering Functions ---
+
+        function updateMissionDisplay() {
+            const dateDisplay = document.getElementById('current-date-display');
+            const statusDisplay = document.getElementById('mission-status');
+            const completeBtn = document.getElementById('complete-mission-btn');
+            
+            dateDisplay.textContent = getTodayDateString();
+
+            if (todayCompletion) {
+                statusDisplay.textContent = "미션 완료! 🎉";
+                statusDisplay.className = 'text-lg font-bold mb-1 text-green-400';
+                completeBtn.disabled = true;
+                completeBtn.textContent = '오늘 미션 완료됨';
+                completeBtn.classList.replace('bg-yellow-400', 'bg-gray-300');
+            } else {
+                statusDisplay.textContent = "미완료 ⏳";
+                statusDisplay.className = 'text-lg font-bold mb-1 text-yellow-400';
+                completeBtn.disabled = false;
+                completeBtn.textContent = '오늘 미션 완료!';
+                completeBtn.classList.replace('bg-gray-300', 'bg-yellow-400');
+            }
+        }
+
+        function renderSentenceList() {
+            const listEl = document.getElementById('sentence-list');
+            listEl.innerHTML = '';
+
+            if (sentences.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-gray-400 p-4">저장된 문장이 없습니다. 위에 새 문장을 추가하세요.</p>';
+                return;
+            }
+
+            sentences.forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'p-3 bg-white border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition duration-150 flex flex-col space-y-2';
+                item.innerHTML = `
+                    <div class="text-sm text-gray-500 font-mono">ID: ${s.id}</div>
+                    <textarea id="eng-edit-${s.id}" class="w-full text-base p-1 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-semibold text-gray-900" rows="1">${s.english}</textarea>
+                    <textarea id="kor-edit-${s.id}" class="w-full text-base p-1 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700" rows="1">${s.korean}</textarea>
+                    <div class="flex space-x-2 mt-2 justify-end">
+                        <button data-id="${s.id}" class="save-btn text-xs text-indigo-600 hover:text-indigo-800 font-medium transition duration-150">수정</button>
+                        <button data-id="${s.id}" class="delete-btn text-xs text-red-600 hover:text-red-800 font-medium transition duration-150">삭제</button>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+            
+            // Reattach event listeners for dynamic buttons
+            document.querySelectorAll('.save-btn').forEach(btn => btn.addEventListener('click', handleEditSentence));
+            document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', handleDeleteSentence));
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                const isActive = btn.dataset.tab === tabName;
+                btn.classList.toggle('border-indigo-600', isActive);
+                btn.classList.toggle('text-indigo-600', isActive);
+                btn.classList.toggle('border-transparent', !isActive);
+                btn.classList.toggle('text-gray-700', !isActive);
+            });
+
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                const isActive = panel.id === `${tabName}-view`;
+                panel.classList.toggle('hidden', !isActive);
+                panel.classList.toggle('active', isActive);
+            });
+
+            if (tabName === 'quiz' && sentences.length === 0) {
+                document.getElementById('quiz-message').textContent = "문장이 없습니다. '본문 편집' 탭에서 문장을 추가해주세요.";
+                document.getElementById('quiz-question').classList.add('hidden');
+            }
+        }
+
+
+        // --- Firestore Interaction Handlers ---
+
+        async function handleAddSentence() {
+            const english = document.getElementById('new-english').value.trim();
+            const korean = document.getElementById('new-korean').value.trim();
+
+            if (!english || !korean) {
+                alert('영어 문장과 한국어 해석을 모두 입력해주세요.');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/users/${userId}/sentences`), {
+                    english: english,
+                    korean: korean,
+                    createdAt: serverTimestamp()
+                });
+                
+                document.getElementById('new-english').value = '';
+                document.getElementById('new-korean').value = '';
+            } catch (e) {
+                console.error("Error adding document: ", e);
+            }
+        }
+
+        async function handleEditSentence(e) {
+            const id = e.target.dataset.id;
+            const english = document.getElementById(`eng-edit-${id}`).value.trim();
+            const korean = document.getElementById(`kor-edit-${id}`).value.trim();
+
+            if (!english || !korean) {
+                alert('문장 내용을 비워둘 수 없습니다. 삭제하려면 삭제 버튼을 사용하세요.');
+                return;
+            }
+
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/sentences`, id);
+                await updateDoc(docRef, {
+                    english: english,
+                    korean: korean
+                });
+                // Simple feedback (optional)
+                e.target.textContent = '수정 완료!';
+                setTimeout(() => e.target.textContent = '수정', 1500);
+            } catch (e) {
+                console.error("Error updating document: ", e);
+            }
+        }
+
+        async function handleDeleteSentence(e) {
+            const id = e.target.dataset.id;
+            if (window.confirm("정말로 이 문장을 삭제하시겠습니까?")) {
+                try {
+                    await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/sentences`, id));
+                } catch (e) {
+                    console.error("Error deleting document: ", e);
+                }
+            }
+        }
+
+        async function handleCompleteMission() {
+            const todayDate = getTodayDateString();
+            const docRef = doc(db, `artifacts/${appId}/users/${userId}/completion_log/${todayDate}`);
+            
+            try {
+                // Use setDoc to create or overwrite the completion status for today
+                await setDoc(docRef, { 
+                    completed: true, 
+                    timestamp: serverTimestamp() 
+                });
+                // UI will update automatically via the onSnapshot listener
+            } catch (e) {
+                console.error("Error setting mission completion status: ", e);
+            }
+        }
+
+        // --- Random Quiz Logic ---
+
+        function startNextQuiz() {
+            document.getElementById('quiz-result').textContent = '';
+            document.getElementById('quiz-answer-input').value = '';
+
+            if (sentences.length === 0) {
+                document.getElementById('quiz-question').classList.add('hidden');
+                document.getElementById('quiz-message').textContent = "문장이 없습니다. '본문 편집' 탭에서 문장을 추가해주세요.";
+                currentQuiz = null;
+                return;
+            }
+
+            // 1. Select a random sentence pair
+            const randomIndex = Math.floor(Math.random() * sentences.length);
+            const selectedSentence = sentences[randomIndex];
+
+            // 2. Randomly choose the question language (0: English question, 1: Korean question)
+            const questionType = Math.random() < 0.5 ? 'english' : 'korean';
+
+            currentQuiz = {
+                question: questionType === 'english' ? selectedSentence.english : selectedSentence.korean,
+                answer: questionType === 'english' ? selectedSentence.korean : selectedSentence.english,
+                type: questionType
+            };
+
+            // 3. Update the UI
+            const questionEl = document.getElementById('quiz-question');
+            const messageEl = document.getElementById('quiz-message');
+            
+            messageEl.classList.remove('text-red-500', 'text-green-500');
+            messageEl.textContent = questionType === 'english' 
+                ? "다음 영어 문장을 한국어로 번역하세요."
+                : "다음 한국어 문장을 영어로 번역하세요.";
+            
+            questionEl.textContent = currentQuiz.question;
+            questionEl.classList.remove('hidden');
+        }
+
+        function checkAnswer() {
+            if (!currentQuiz) {
+                document.getElementById('quiz-result').textContent = '문제를 먼저 시작하세요!';
+                return;
+            }
+
+            const userAnswer = document.getElementById('quiz-answer-input').value.trim();
+            const resultEl = document.getElementById('quiz-result');
+            const answerText = currentQuiz.answer;
+
+            if (userAnswer.toLowerCase() === answerText.toLowerCase()) {
+                resultEl.textContent = '✅ 정답입니다! 다음 문제로 넘어가세요.';
+                resultEl.className = 'mt-4 text-center font-bold text-xl text-green-600';
+                currentQuiz = null; // Mark as answered
+            } else {
+                resultEl.textContent = `❌ 오답입니다. 정답: ${answerText}`;
+                resultEl.className = 'mt-4 text-center font-bold text-xl text-red-600';
+                // User can now hit "Next" or try again
+                document.getElementById('quiz-answer-input').value = currentQuiz.answer; // Auto-fill the answer for review
+                currentQuiz = null; // Mark as revealed
+            }
+        }
+
+
+        // --- Event Listeners and Initial Load ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('loading').classList.remove('hidden');
+            
+            // Tab switching
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.addEventListener('click', (e) => showTab(e.target.dataset.tab));
+            });
+
+            // Edit View Handlers
+            document.getElementById('add-sentence-btn').addEventListener('click', handleAddSentence);
+
+            // Quiz View Handlers
+            document.getElementById('next-quiz-btn').addEventListener('click', startNextQuiz);
+            document.getElementById('check-answer-btn').addEventListener('click', checkAnswer);
+
+            // Mission Handler
+            document.getElementById('complete-mission-btn').addEventListener('click', handleCompleteMission);
+
+            // Initialize Firebase
+            initFirebase();
+            updateMissionDisplay(); // Display date immediately
+        });
+    </script>
+</body>
+</html>
